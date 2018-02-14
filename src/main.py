@@ -11,7 +11,6 @@ from kivy.core.window import Window
 from kivy.graphics.transformation import Matrix
 import camera_thread, stick, camera_chdk, camera_gphoto, preview, errorlog, preview_thread
 import os, json, string, re, traceback, errno
-import wiringpi
 
 version = '1.5'
 debug = False
@@ -1299,15 +1298,7 @@ class ScanApp(App):
     self.handlingKey = False
     self.manager = ScanRoot()
 
-    # Set up GPIO pin for foot pedal
-    os.system("gpio export 21 up")
-    wiringpi.wiringPiSetupSys()
-    #wiringpi.pinMode(21, 0)
-    #wiringpi.pullUpDnControl(21, 2)
-    self.lastPedal = 0
-
     Clock.schedule_interval(self.update, 0.5)
-    Clock.schedule_interval(self.checkPedal, 0.05)
 
     Window.bind(on_key_down=self.on_key_down)
     Window.bind(on_key_up=self.on_key_up)
@@ -1320,19 +1311,6 @@ class ScanApp(App):
             (self.manager.current_screen.transition_progress == 1 and
              self.manager.current_screen.transition_state == 'in')):
           self.manager.current_screen.update(dt)
-    except Exception as e:
-      handleCrash(e)
-    return True
-
-  def checkPedal(self, dt):
-    try:
-      pass
-      # Only trigger a capture when the circuit goes from open to closed
-      nextPedal = wiringpi.digitalRead(21)
-      #print('checkPedal', nextPedal)
-      if self.lastPedal == 1 and nextPedal == 0 and 'beginCapture' in dir(self.manager.current_screen):
-        self.manager.current_screen.beginCapture()
-      self.lastPedal = nextPedal
     except Exception as e:
       handleCrash(e)
     return True
