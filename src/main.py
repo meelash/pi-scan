@@ -1,3 +1,8 @@
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('storagePath')
+args = parser.parse_args()
+
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.properties import StringProperty, BooleanProperty, NumericProperty, ObjectProperty, ListProperty
@@ -9,7 +14,7 @@ from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.uix.widget import Widget
 from kivy.core.window import Window
 from kivy.graphics.transformation import Matrix
-import camera_thread, stick, camera_chdk, camera_gphoto, preview, errorlog, preview_thread
+import camera_thread, camera_chdk, camera_gphoto, preview, errorlog, preview_thread
 import os, json, string, re, traceback, errno
 
 version = '1.5'
@@ -391,18 +396,7 @@ class StartScreen(Screen):
     self.titleLabel.text = title
     errorlog.closeLog()
     maxWait = 60
-    count = stick.searchAndUnmount(self.syncWait > maxWait)
-    if count == 0:
-      self.syncWait = 0.0
-      self.powerOff.text = 'All disks ejected. Ok to power off or disconnect disk.'
-    else:
-      timeLeft = maxWait - self.syncWait
-      waitString = 'Force Ejecting now. '
-      if timeLeft > 0:
-        waitString = 'Syncing to disk. Waiting %0.0f more seconds before force ejecting.' % timeLeft
-      self.syncWait += dt
-      self.powerOff.text = waitString + ' [color=ff3333]Do not power off.[/color]'
-    self.manager.mountPoint = None
+    self.manager.mountPoint = args.storagePath
     if ((odd.camera is not None and odd.camera.is_connected()) or
         (even.camera is not None and even.camera.is_connected())) and not gphoto:
       self.cameraOffButton.opacity = 1.0
@@ -444,45 +438,20 @@ class ConfigureDiskScreen(Screen):
   waitCount = NumericProperty(0.0)
 
   def update(self, dt):
-    sticks = stick.search()
-    if len(sticks) == 0:
-      self.diskStatus.text = '[color=ff3333]No Storage Found.[/color] Insert removable storage to continue (USB drive or SD card).'
-      self.diskNext.disabled = True
-      self.spinner.opacity = 1.0
-    elif len(sticks) == 1:
-      mountPoint = sticks[0].get_mount_point()
-      #self.manager.mountPoint = string.strip(.encode('ascii'), '\0')
-      if mountPoint is None:
-        mountPoint = sticks[0].mount()
-      #self.manager.mountPoint = 'test'
-      if mountPoint is None:
-        self.manager.mountPoint = None
-        self.diskStatus.text = 'Could not mount drive. Try removing and re-inserting it.'
-        self.diskNext.disabled = True
-        self.spinner.opacity = 1.0
+    self.diskStatus.text = self.manager.mountPoint
+    failMessage = self.makeDirs()
+    if failMessage is None:
+      self.diskStatus.text = 'Storage Found. Click next to continue.'
+      self.diskNext.disabled = False
+      self.spinner.opacity = 0.0
+      if self.getUpgrade() is not None:
+        self.upgradeButton.opacity = 1.0
+        self.upgradeButton.disabled = False
+      else:
         self.upgradeButton.opacity = 0.0
         self.upgradeButton.disabled = True
-      else:
-        self.manager.mountPoint = string.strip(mountPoint.encode('ascii'), '\0')
-        failMessage = self.makeDirs()
-        if failMessage is None:
-          self.diskStatus.text = 'Storage Found. Click next to continue.'
-          self.diskNext.disabled = False
-          self.spinner.opacity = 0.0
-          if self.getUpgrade() is not None:
-            self.upgradeButton.opacity = 1.0
-            self.upgradeButton.disabled = False
-          else:
-            self.upgradeButton.opacity = 0.0
-            self.upgradeButton.disabled = True
-        else:
-          self.diskStatus.text = 'Storage Error: ' + failMessage
-          self.diskNext.disabled = True
-          self.spinner.opacity = 1.0
-          self.upgradeButton.opacity = 0.0
-          self.upgradeButton.disabled = True
     else:
-      self.diskStatus.text = '[color=ff3333]Multiple Drives Found.[/color] Disconnect all but one drive to continue.'
+      self.diskStatus.text = 'Storage Error: ' + failMessage
       self.diskNext.disabled = True
       self.spinner.opacity = 1.0
       self.upgradeButton.opacity = 0.0
