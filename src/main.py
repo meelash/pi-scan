@@ -1308,7 +1308,7 @@ class ScanApp(App):
         handleCrash(e)
     return True
 
-  def on_key_up(self, window, scancode, codepoint, key, other):
+  def on_key_up(self, window, scancode, codepoint):
     self.handlingKey = False
 
 if __name__ == '__main__':
